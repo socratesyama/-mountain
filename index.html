@@ -1,0 +1,711 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>等高線クラフト</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700&display=swap">
+<style>
+/* Layout: a sticker-style doodle toy. Left card is the pad you scribble on, right card is the mountain that grows from it. One accent: marker yellow. */
+:root{
+  --paper:#e4f1f7; --surface:#ffffff; --ink:#17323f; --muted:#587684;
+  --accent:#ffc83d; --accent-ink:#17323f; --halo:#ffffff;
+  --sky1:#cfe6f2; --sky2:#f2f8f6; --scrim:rgba(12,26,34,.62);
+  --f-display:'Dela Gothic One','Hiragino Sans','Yu Gothic',sans-serif;
+  --f-body:'Zen Maru Gothic','Hiragino Maru Gothic ProN','Yu Gothic',sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0d1b24; --surface:#182f3b; --ink:#e8f3f7; --muted:#92aab6;
+    --accent:#ffc83d; --accent-ink:#17323f; --halo:#182f3b;
+    --sky1:#0b1820; --sky2:#1b3846; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0d1b24; --surface:#182f3b; --ink:#e8f3f7; --muted:#92aab6;
+  --accent:#ffc83d; --accent-ink:#17323f; --halo:#182f3b;
+  --sky1:#0b1820; --sky2:#1b3846; color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--paper); color:var(--ink); font-family:var(--f-body); font-weight:500; font-size:15px; line-height:1.5;
+  padding-block:18px 36px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.shell{max-width:1120px;margin:0 auto;display:grid;gap:16px}
+.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 16px}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(26px,5vw,38px);line-height:1.1;margin:0;text-wrap:balance}
+.top p{margin:0;color:var(--muted);font-weight:700}
+.stage{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+@media (max-width:860px){.stage{grid-template-columns:minmax(0,1fr)}}
+.col{display:grid;gap:14px;min-width:0}
+
+.card{position:relative;background:var(--surface);border:2.5px solid var(--ink);border-radius:20px;box-shadow:0 4px 0 var(--ink);overflow:hidden;min-width:0}
+.pad,.vp{aspect-ratio:1;max-width:100%}
+.vp{background:linear-gradient(180deg,var(--sky1),var(--sky2))}
+@media (max-width:860px){
+  .pad{width:min(100%,46dvh);margin-inline:auto}
+  .vp{aspect-ratio:4/3;max-height:38dvh;width:100%}
+}
+#board{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+.vp canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.hint{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);padding:5px 16px;background:var(--surface);border:2.5px solid var(--ink);border-radius:999px;font-weight:700;font-size:14px;white-space:nowrap;pointer-events:none}
+.hint.off{display:none}
+.hud{position:absolute;left:16px;top:12px;right:16px;pointer-events:none}
+.name{font:400 clamp(20px,3.4vw,28px)/1.2 var(--f-display);text-wrap:balance}
+.sub{margin-top:2px;font-weight:700;font-size:13px;color:var(--muted)}
+.nogl{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--muted)}
+
+.panel{padding:14px;display:grid;gap:12px}
+.head{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.lbl{font-weight:700;font-size:13px;color:var(--muted)}
+output{font:400 22px var(--f-display);font-variant-numeric:tabular-nums}
+.palette{display:flex;gap:6px}
+.sw{appearance:none;flex:1 1 0;min-width:0;max-width:46px;aspect-ratio:1;border-radius:50%;border:2.5px solid var(--ink);background:var(--c);cursor:pointer;padding:0}
+.sw[aria-checked="true"]{outline:3px solid var(--ink);outline-offset:2px;transform:translateY(-3px)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{appearance:none;border:2.5px solid var(--ink);background:var(--surface);color:var(--ink);font:700 15px var(--f-body);min-height:44px;padding:6px 18px;border-radius:999px;box-shadow:0 3px 0 var(--ink);cursor:pointer}
+.btn:active:not(:disabled){transform:translateY(3px);box-shadow:0 0 0 var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.big{width:100%;min-height:52px;font-size:17px}
+a.btn{display:inline-flex;align-items:center;justify-content:center;text-decoration:none}
+.btn.x{background:var(--ink);color:var(--surface)}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.btn:focus-visible,.sw:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.chk{display:inline-flex;gap:8px;align-items:center;font-size:14px;font-weight:700;cursor:pointer;min-height:32px}
+.chk input{width:18px;height:18px;margin:0;accent-color:var(--ink)}
+.slider{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center}
+.slider output{font:700 14px var(--f-body);min-width:5ch;text-align:right}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:28px;background:transparent;margin:0}
+input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:999px;border:2.5px solid var(--ink);background:linear-gradient(to right,#bfe1ef,#4c86ab)}
+input[type=range]::-moz-range-track{height:6px;border-radius:999px;border:2.5px solid var(--ink);background:linear-gradient(to right,#bfe1ef,#4c86ab)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;background:var(--accent);border:2.5px solid var(--ink);margin-top:-10px}
+input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;background:var(--accent);border:2.5px solid var(--ink)}
+
+.modal{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:var(--scrim);
+  padding-block:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.modal .card{width:min(100%,460px);max-height:100%;overflow:auto;padding:14px;display:grid;gap:12px}
+.modal img{display:block;width:100%;height:auto;max-height:58dvh;object-fit:contain;border-radius:12px;border:2.5px solid var(--ink);-webkit-touch-callout:default;user-select:auto}
+.modal p{margin:0;font-size:13px;color:var(--muted);font-weight:700}
+.toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;max-width:calc(100% - 32px);padding:8px 18px;border-radius:999px;background:var(--ink);color:var(--surface);font-weight:700;font-size:14px;text-align:center}
+@media (prefers-reduced-motion:no-preference){.sw{transition:transform .12s}.btn{transition:transform .08s,box-shadow .08s}}
+</style>
+
+<div class="shell">
+  <header class="top">
+    <h1>等高線クラフト</h1>
+    <p>ぐるぐる描くと、山になる。</p>
+  </header>
+
+  <main class="stage">
+    <section class="col" aria-label="描くところ">
+      <div class="card pad">
+        <canvas id="board" role="img" aria-label="線を描く地図。描いた線の形で右の山が変わります"></canvas>
+        <div class="hint" id="hint">ここにぐるぐる描いてね</div>
+      </div>
+      <div class="card panel">
+        <div class="head"><span class="lbl" id="l-elev">いまの高さ</span><output id="elevOut">600 m</output></div>
+        <div class="palette" id="palette" role="radiogroup" aria-labelledby="l-elev"></div>
+        <div class="row">
+          <button id="rand" class="btn primary">おまかせ</button>
+          <button id="tErase" class="btn" aria-pressed="false">消しゴム</button>
+          <button id="undo" class="btn" disabled>戻す</button>
+          <button id="clear" class="btn">全部消す</button>
+        </div>
+        <label class="chk"><input id="autoUp" type="checkbox" checked>輪を閉じたら次を300m高くする</label>
+      </div>
+    </section>
+
+    <section class="col" aria-label="できた山">
+      <div class="card vp" id="vp">
+        <div class="hud" aria-live="polite"><div class="name" id="mName">まっさらな海</div><div class="sub" id="mSub"></div></div>
+      </div>
+      <div class="card panel">
+        <div class="slider"><label class="lbl" for="water">みず</label><input id="water" type="range" min="0" max="1000" step="10" value="30"><output id="waterOut">30 m</output></div>
+        <button id="share" class="btn primary big">この山をシェア</button>
+        <a id="xPost" class="btn x big" href="https://x.com/intent/post" target="_blank" rel="noopener noreferrer">Xで山をポスト</a>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="modal" id="modal" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-label="シェア画像">
+    <img id="shareImg" alt="できあがった山のシェア用画像">
+    <p>画像を長押し(PCは右クリック)で保存して、Xの投稿に添付できます。</p>
+    <div class="row">
+      <button id="copyText" class="btn primary">投稿文をコピー</button>
+      <button id="copyImg" class="btn">画像をコピー</button>
+      <button id="closeModal" class="btn">閉じる</button>
+      <a id="xPost2" class="btn x" href="https://x.com/intent/post" target="_blank" rel="noopener noreferrer">Xで山をポスト</a>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+var G=129, N=G-1, MAXE=3000, WORLD=10, WORLD_H=WORLD*MAXE/12000;
+var $=function(id){return document.getElementById(id)};
+var clamp=function(v,a,b){return v<a?a:v>b?b:v};
+var fmt=function(n){return Math.round(n).toLocaleString('ja-JP')};
+var reduced=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- state ---------- */
+var strokes=[], hist=[], elev=600, tool='draw', cur=null, drawing=false, hover=null, animTimer=0;
+var bulge=2.7, exag=1.8, water=30, autoUp=true, autoRot=!reduced;
+var h=new Float32Array(G*G), hd=new Float32Array(G*G), tmp=new Float32Array(G*G);
+var fixM=new Uint8Array(G*G), fixV=new Float32Array(G*G), src=new Float32Array(G*G), dist=new Uint8Array(G*G);
+var dirtyC=true, settled=false, dirtyGeo=true, dirtyTex=true, dirty2D=true, lastTex=0;
+var peaks=0, maxH=0, lake=0, islands=0, cardCanvas=null;
+
+/* ---------- hypsometric palette ---------- */
+var stops=[[0,[168,207,157]],[300,[214,224,160]],[700,[233,212,154]],[1200,[211,168,110]],[1800,[176,127,90]],[2400,[217,210,203]],[3000,[255,255,255]]];
+var LUT=new Uint8Array(301*3);
+(function(){
+  for(var k=0;k<=300;k++){
+    var m=k*10, a=stops[0], b=stops[1];
+    for(var s=0;s<stops.length-1;s++){ if(m>=stops[s][0]&&m<=stops[s+1][0]){a=stops[s];b=stops[s+1];break;} }
+    var t=(m-a[0])/(b[0]-a[0]);
+    for(var c=0;c<3;c++) LUT[k*3+c]=Math.round(a[1][c]+(b[1][c]-a[1][c])*t);
+  }
+})();
+function inkOf(e){ var k=Math.round(Math.min(MAXE,e)/10)*3; return 'rgb('+((LUT[k]*.5)|0)+','+((LUT[k+1]*.5)|0)+','+((LUT[k+2]*.5)|0)+')'; }
+function swOf(e){ var k=Math.round(Math.min(MAXE,e)/10)*3; return 'rgb('+LUT[k]+','+LUT[k+1]+','+LUT[k+2]+')'; }
+var rgb=[0,0,0];
+function colorAt(m){
+  if(m<water){ var t=Math.min(1,(water-m)/250); rgb[0]=143+(76-143)*t; rgb[1]=192+(134-192)*t; rgb[2]=214+(171-214)*t; }
+  else { var k=Math.round(Math.min(MAXE,m)/10)*3; rgb[0]=LUT[k]; rgb[1]=LUT[k+1]; rgb[2]=LUT[k+2]; }
+}
+
+/* ---------- height field ---------- */
+function mark(x,y,e,cells){
+  var cx=clamp(Math.round(x),0,N), cy=clamp(Math.round(y),0,N), i=cy*G+cx;
+  fixM[i]=1; fixV[i]=e; cells.push(i);
+}
+function rebuild(){
+  fixM.fill(0); fixV.fill(0); dist.fill(255);
+  for(var k=0;k<G;k++){ var a=k, b=N*G+k, c=k*G, d=k*G+N; fixM[a]=fixM[b]=fixM[c]=fixM[d]=1; }
+  var cells=[];
+  for(var si=0;si<strokes.length;si++){
+    var s=strokes[si], p=s.pts, px=0, py=0;
+    for(var j=0;j<p.length;j++){
+      var x=p[j][0]*N, y=p[j][1]*N;
+      if(j>0){
+        var dx=x-px, dy=y-py, n=Math.max(1,Math.ceil(Math.hypot(dx,dy)*2));
+        for(var t=1;t<=n;t++) mark(px+dx*t/n,py+dy*t/n,s.e,cells);
+      } else mark(x,y,s.e,cells);
+      px=x; py=y;
+    }
+  }
+  var DM=18, q=new Int32Array(G*G), qh=0, qt=0;
+  for(var ci=0;ci<cells.length;ci++){ var id=cells[ci]; if(dist[id]!==0){ dist[id]=0; q[qt++]=id; } }
+  while(qh<qt){
+    var i=q[qh++], dd=dist[i]; if(dd>=DM) continue;
+    var x0=i%G, y0=(i/G)|0, nb=[];
+    if(x0>0) nb.push(i-1); if(x0<N) nb.push(i+1); if(y0>0) nb.push(i-G); if(y0<N) nb.push(i+G);
+    for(var u=0;u<nb.length;u++){ var jn=nb[u]; if(dist[jn]===255){ dist[jn]=dd+1; q[qt++]=jn; } }
+  }
+  for(var m=0;m<G*G;m++){
+    src[m]=dist[m]<=DM?bulge*(1-dist[m]/(DM+1)):0;
+    if(fixM[m]) h[m]=fixV[m];
+  }
+}
+function relax(iters){
+  var w=1.9, md=0;
+  for(var it=0;it<iters;it++){
+    md=0;
+    for(var y=1;y<N;y++){
+      var i=y*G+1;
+      for(var x=1;x<N;x++,i++){
+        if(fixM[i]) continue;
+        var nv=(h[i-1]+h[i+1]+h[i-G]+h[i+G]+src[i])*0.25, d=nv-h[i];
+        var v=h[i]+w*d; if(v<0) v=0; h[i]=v;
+        var a=d<0?-d:d; if(a>md) md=a;
+      }
+    }
+  }
+  return md;
+}
+function smooth(){
+  hd.set(h);
+  for(var pass=0;pass<3;pass++){
+    tmp.set(hd);
+    for(var y=1;y<N;y++){
+      var i=y*G+1;
+      for(var x=1;x<N;x++,i++){
+        hd[i]=(tmp[i-G-1]+tmp[i-G]+tmp[i-G+1]+tmp[i-1]+tmp[i]+tmp[i+1]+tmp[i+G-1]+tmp[i+G]+tmp[i+G+1])/9;
+      }
+    }
+  }
+}
+function settleNow(){
+  rebuild(); dirtyC=false;
+  for(var k=0;k<40;k++){ if(relax(60)<0.015) break; }
+  smooth(); settled=true; analyze();
+  dirtyGeo=dirtyTex=dirty2D=true;
+}
+
+/* ---------- analysis and naming ---------- */
+var PRE=['ポコ','モコ','ニョキ','ドン','ぷるん','ゴロ','ふわ','キリ','ムク','ズン','ほわ','コロ'];
+function mountainName(){
+  if(maxH<30) return 'まっさらな海';
+  var seed=(Math.round(maxH/50)*31+peaks*17+islands*7)>>>0, pre=PRE[seed%PRE.length];
+  var lead=lake>=25?'湖のある':'';
+  if(islands>=2&&peaks>=1) return lead+pre+'諸島';
+  var base=maxH<250?'丘':maxH<900?'山':maxH<1900?'岳':maxH<2700?'嶺':'大岳';
+  if(peaks>=4) return lead+pre+'連峰';
+  if(peaks===3) return lead+'みつご'+base;
+  if(peaks===2) return lead+'ふたこぶ'+base;
+  return lead+pre+base;
+}
+function compare(m){
+  if(m<30) return '';
+  if(m<599) return '高尾山(599m)の '+Math.round(m/599*100)+'%';
+  return '富士山(3,776m)の '+Math.round(m/3776*100)+'%';
+}
+function analyze(){
+  var i, mx=0;
+  for(i=0;i<G*G;i++) if(hd[i]>mx) mx=hd[i];
+  maxH=mx;
+  var cand=[], R=5;
+  for(var y=R;y<=N-R;y++){
+    for(var x=R;x<=N-R;x++){
+      var idx=y*G+x, v=hd[idx];
+      if(v<water+150) continue;
+      var ok=true;
+      outer: for(var dy=-R;dy<=R;dy++){
+        var row=(y+dy)*G+x;
+        for(var dx=-R;dx<=R;dx++){ if(hd[row+dx]>v){ ok=false; break outer; } }
+      }
+      if(ok) cand.push([x,y,v]);
+    }
+  }
+  cand.sort(function(a,b){return b[2]-a[2]});
+  var kept=[];
+  cand.forEach(function(c){ if(kept.every(function(k){return Math.hypot(k[0]-c[0],k[1]-c[1])>=12})) kept.push(c); });
+  peaks=kept.length;
+  var ocean=new Uint8Array(G*G), q=new Int32Array(G*G), qh=0, qt=0;
+  for(i=0;i<G*G;i++){
+    var xx=i%G, yy=(i/G)|0;
+    if((xx===0||yy===0||xx===N||yy===N)&&hd[i]<water){ ocean[i]=1; q[qt++]=i; }
+  }
+  while(qh<qt){
+    var c=q[qh++], cx=c%G, cy=(c/G)|0, nb=[];
+    if(cx>0) nb.push(c-1); if(cx<N) nb.push(c+1); if(cy>0) nb.push(c-G); if(cy<N) nb.push(c+G);
+    for(var u=0;u<nb.length;u++){ var j=nb[u]; if(!ocean[j]&&hd[j]<water){ ocean[j]=1; q[qt++]=j; } }
+  }
+  var lc=0; for(i=0;i<G*G;i++) if(hd[i]<water&&!ocean[i]) lc++;
+  lake=lc;
+  var seen=new Uint8Array(G*G), comps=0;
+  for(i=0;i<G*G;i++){
+    if(seen[i]||hd[i]<water) continue;
+    qh=0; qt=0; q[qt++]=i; seen[i]=1; var area=0;
+    while(qh<qt){
+      var c2=q[qh++]; area++;
+      var x2=c2%G, y2=(c2/G)|0, nb2=[];
+      if(x2>0) nb2.push(c2-1); if(x2<N) nb2.push(c2+1); if(y2>0) nb2.push(c2-G); if(y2<N) nb2.push(c2+G);
+      for(var w=0;w<nb2.length;w++){ var j2=nb2[w]; if(!seen[j2]&&hd[j2]>=water){ seen[j2]=1; q[qt++]=j2; } }
+    }
+    if(area>=60) comps++;
+  }
+  islands=comps;
+  $('mName').textContent=mountainName();
+  $('mSub').textContent=maxH<30?'ぐるぐる描いて山をつくろう':'標高 '+fmt(maxH)+' m / '+compare(maxH);
+  updateX();
+}
+function updateX(){
+  var u='https://x.com/intent/post?text='+encodeURIComponent(postText());
+  $('xPost').href=u; $('xPost2').href=u;
+}
+
+/* ---------- 2D pad ---------- */
+var board=$('board'), bctx=board.getContext('2d');
+var uc=document.createElement('canvas'); uc.width=uc.height=G;
+var uctx=uc.getContext('2d'), uimg=uctx.createImageData(G,G), u32=new Uint32Array(uimg.data.buffer);
+function paintUnderlay(){
+  for(var y=0;y<=N;y++){
+    for(var x=0;x<=N;x++){
+      var i=y*G+x, m=hd[i];
+      var xl=x>0?i-1:i, xr=x<N?i+1:i, yu=y>0?i-G:i, yd=y<N?i+G:i;
+      var gx=(hd[xr]-hd[xl])*.5, gy=(hd[yd]-hd[yu])*.5;
+      var sh=m<water?1:1+clamp((gx+gy)*0.004,-.4,.4);
+      colorAt(m);
+      var r=clamp(rgb[0]*sh,0,255)|0, g=clamp(rgb[1]*sh,0,255)|0, b=clamp(rgb[2]*sh,0,255)|0;
+      u32[i]=0xff000000|(b<<16)|(g<<8)|r;
+    }
+  }
+  uctx.putImageData(uimg,0,0);
+}
+function css(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function pathOf(ctx,pts,W){
+  ctx.beginPath(); ctx.moveTo(pts[0][0]*W,pts[0][1]*W);
+  if(pts.length===2){ ctx.lineTo(pts[1][0]*W,pts[1][1]*W); return; }
+  for(var k=1;k<pts.length-1;k++){
+    var mx=(pts[k][0]+pts[k+1][0])/2*W, my=(pts[k][1]+pts[k+1][1])/2*W;
+    ctx.quadraticCurveTo(pts[k][0]*W,pts[k][1]*W,mx,my);
+  }
+  var l=pts[pts.length-1]; ctx.lineTo(l[0]*W,l[1]*W);
+}
+function draw2D(){
+  var W=board.clientWidth; if(!W) return;
+  var dpr=Math.min(window.devicePixelRatio||1,2), px=Math.round(W*dpr);
+  if(board.width!==px){ board.width=px; board.height=px; }
+  var ctx=bctx; ctx.setTransform(dpr,0,0,dpr,0,0); ctx.clearRect(0,0,W,W);
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.drawImage(uc,0.5,0.5,N,N,0,0,W,W);
+  ctx.lineJoin='round'; ctx.lineCap='round';
+  var halo=css('--halo'), ink=css('--ink');
+  strokes.forEach(function(s){
+    var p=s.pts; if(!p.length) return;
+    if(p.length===1){
+      ctx.fillStyle=halo; ctx.beginPath(); ctx.arc(p[0][0]*W,p[0][1]*W,9,0,6.2832); ctx.fill();
+      ctx.fillStyle=inkOf(s.e); ctx.beginPath(); ctx.arc(p[0][0]*W,p[0][1]*W,5.5,0,6.2832); ctx.fill();
+    } else {
+      pathOf(ctx,p,W);
+      ctx.lineWidth=10; ctx.strokeStyle=halo; ctx.globalAlpha=.85; ctx.stroke(); ctx.globalAlpha=1;
+      ctx.lineWidth=5.5; ctx.strokeStyle=inkOf(s.e); ctx.stroke();
+    }
+  });
+  if(hover){
+    var hx=hover[0]*W, hy=hover[1]*W; ctx.lineWidth=2.5; ctx.strokeStyle=ink;
+    if(tool==='erase'){ ctx.beginPath(); ctx.arc(hx,hy,0.03*W,0,6.2832); ctx.stroke(); }
+    else { ctx.fillStyle=swOf(elev); ctx.beginPath(); ctx.arc(hx,hy,8,0,6.2832); ctx.fill(); ctx.stroke(); }
+  }
+}
+
+/* ---------- 3D view ---------- */
+var scene,cam,renderer,geo,terrain,waterMesh,tex,tc,tctx,timg,t32,glOK=false,resizeGL=function(){};
+var theta=0.6, phi=1.0, radius=17;
+var T=512;
+function initGL(){
+  var vp=$('vp');
+  try{
+    if(typeof THREE==='undefined') throw new Error('three');
+    renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  }catch(err){
+    var d=document.createElement('div'); d.className='nogl'; d.textContent='このブラウザでは立体表示を開始できませんでした。左のパッドで描くことはできます。'; vp.appendChild(d); return;
+  }
+  glOK=true;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  vp.insertBefore(renderer.domElement,vp.firstChild);
+  scene=new THREE.Scene();
+  cam=new THREE.PerspectiveCamera(38,1,0.1,100);
+  scene.add(new THREE.HemisphereLight(0xdfeaf5,0x6a6050,0.85));
+  var sun=new THREE.DirectionalLight(0xfff2dd,0.6); sun.position.set(-6,9,5); scene.add(sun);
+  geo=new THREE.PlaneGeometry(WORLD,WORLD,N,N); geo.rotateX(-Math.PI/2);
+  tc=document.createElement('canvas'); tc.width=tc.height=T; tctx=tc.getContext('2d');
+  timg=tctx.createImageData(T,T); t32=new Uint32Array(timg.data.buffer);
+  tex=new THREE.CanvasTexture(tc); tex.anisotropy=4;
+  terrain=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({map:tex}));
+  scene.add(terrain);
+  var base=new THREE.Mesh(new THREE.BoxGeometry(WORLD+0.3,0.5,WORLD+0.3),new THREE.MeshLambertMaterial({color:0x2a3a3d}));
+  base.position.y=-0.253; scene.add(base);
+  var wg=new THREE.BoxGeometry(WORLD,1,WORLD); wg.translate(0,0.5,0);
+  waterMesh=new THREE.Mesh(wg,new THREE.MeshPhongMaterial({color:0x4a8fb8,transparent:true,opacity:0.5,shininess:80,depthWrite:false}));
+  scene.add(waterMesh);
+
+  var cv=renderer.domElement, ptrs=new Map(), pinch=0;
+  var d2=function(){ var a=Array.from(ptrs.values()); return Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1]); };
+  cv.addEventListener('pointerdown',function(e){ cv.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,[e.clientX,e.clientY]); cv.style.cursor='grabbing'; if(ptrs.size===2) pinch=d2(); });
+  cv.addEventListener('pointermove',function(e){
+    if(!ptrs.has(e.pointerId)) return;
+    var p=ptrs.get(e.pointerId), dx=e.clientX-p[0], dy=e.clientY-p[1];
+    ptrs.set(e.pointerId,[e.clientX,e.clientY]);
+    if(ptrs.size===1){ theta-=dx*0.006; phi=clamp(phi-dy*0.006,0.12,1.5); }
+    else if(ptrs.size===2){ var d=d2(); if(pinch) radius=clamp(radius*pinch/d,8,32); pinch=d; }
+  });
+  var up=function(e){ ptrs.delete(e.pointerId); if(ptrs.size<2) pinch=0; if(!ptrs.size) cv.style.cursor='grab'; };
+  cv.addEventListener('pointerup',up); cv.addEventListener('pointercancel',up);
+  cv.addEventListener('wheel',function(e){ e.preventDefault(); radius=clamp(radius*Math.exp(e.deltaY*0.0012),8,32); },{passive:false});
+  cv.addEventListener('dragstart',function(e){e.preventDefault()});
+  cv._active=function(){ return ptrs.size>0; };
+  resizeGL=function(){
+    var w=vp.clientWidth, hh=vp.clientHeight; if(!w||!hh) return;
+    renderer.setSize(w,hh,false); cam.aspect=w/hh; cam.updateProjectionMatrix();
+  };
+  if(window.ResizeObserver) new ResizeObserver(resizeGL).observe(vp); else window.addEventListener('resize',resizeGL);
+  resizeGL();
+}
+function updateGeo(){
+  if(!glOK) return;
+  var pos=geo.attributes.position.array, sc=WORLD_H*exag/MAXE;
+  for(var i=0;i<G*G;i++) pos[i*3+1]=hd[i]*sc;
+  geo.attributes.position.needsUpdate=true; geo.computeVertexNormals();
+  var wy=water*sc; waterMesh.scale.y=Math.max(wy,0.002);
+}
+function paintTex(){
+  if(!glOK) return;
+  var sc=N/(T-1), LR=122, LG=78, LB=48;
+  for(var py=0;py<T;py++){
+    var gy=py*sc, y0=Math.min(N-1,Math.floor(gy)), fy=gy-y0;
+    for(var px=0;px<T;px++){
+      var gx=px*sc, x0=Math.min(N-1,Math.floor(gx)), fx=gx-x0, i=y0*G+x0;
+      var a=hd[i], b=hd[i+1], c=hd[i+G], d=hd[i+G+1];
+      var top=a+(b-a)*fx, bot=c+(d-c)*fx, m=top+(bot-top)*fy;
+      colorAt(m);
+      var r=rgb[0], g=rgb[1], bl=rgb[2];
+      if(m>water){
+        var sx=((b-a)*(1-fy)+(d-c)*fy)*sc, sy=((c-a)*(1-fx)+(d-b)*fx)*sc, gr=Math.sqrt(sx*sx+sy*sy);
+        if(gr>0.08){
+          var f=m/100, fr=f-Math.round(f), dpx=Math.abs(fr)*100/gr;
+          var idxLine=(Math.round(f)%5===0), lw=idxLine?1.05:0.55, al=lw+0.5-dpx;
+          if(al>0){ al=Math.min(1,al)*(idxLine?0.85:0.55); r+=(LR-r)*al; g+=(LG-g)*al; bl+=(LB-bl)*al; }
+        }
+      }
+      t32[py*T+px]=0xff000000|((bl|0)<<16)|((g|0)<<8)|(r|0);
+    }
+  }
+  tctx.putImageData(timg,0,0); tex.needsUpdate=true;
+}
+
+/* ---------- pen, eraser, palette ---------- */
+var LEVELS=[0,300,600,900,1200,1500,1800,2100,2400,2700,3000];
+var pal=$('palette');
+LEVELS.forEach(function(lv){
+  var b=document.createElement('button'); b.className='sw'; b.type='button'; b.setAttribute('role','radio');
+  b.setAttribute('aria-label',fmt(lv)+'メートル'); b.title=fmt(lv)+' m'; b.dataset.lv=lv; b.style.setProperty('--c',swOf(lv));
+  pal.appendChild(b);
+});
+pal.addEventListener('click',function(e){ var b=e.target.closest('.sw'); if(b){ setElev(+b.dataset.lv); if(tool==='erase') setTool('draw'); } });
+function setElev(m){
+  elev=clamp(Math.round(m/100)*100,0,MAXE);
+  $('elevOut').textContent=fmt(elev)+' m';
+  Array.prototype.forEach.call(pal.children,function(b){ b.setAttribute('aria-checked',String(+b.dataset.lv===elev)); });
+  dirty2D=true;
+}
+function setTool(t){
+  tool=t; $('tErase').setAttribute('aria-pressed',String(t==='erase'));
+  board.style.cursor=t==='draw'?'crosshair':'cell'; dirty2D=true;
+}
+function uvOf(e){ var r=board.getBoundingClientRect(); return [clamp((e.clientX-r.left)/r.width,0,1),clamp((e.clientY-r.top)/r.height,0,1)]; }
+function pushHist(){ hist.push(strokes.slice()); if(hist.length>60) hist.shift(); $('undo').disabled=false; }
+function segDist(p,a,b){
+  var dx=b[0]-a[0], dy=b[1]-a[1], l=dx*dx+dy*dy, t=l?clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l,0,1):0;
+  return Math.hypot(p[0]-(a[0]+dx*t),p[1]-(a[1]+dy*t));
+}
+function eraseAt(p){
+  var before=strokes.length;
+  strokes=strokes.filter(function(s){
+    if(s.pts.length===1) return Math.hypot(s.pts[0][0]-p[0],s.pts[0][1]-p[1])>0.03;
+    for(var k=1;k<s.pts.length;k++) if(segDist(p,s.pts[k-1],s.pts[k])<0.03) return false;
+    return true;
+  });
+  if(strokes.length!==before) markC();
+}
+function markC(){ dirtyC=true; dirty2D=true; }
+function stopAnim(){ if(animTimer){ clearTimeout(animTimer); animTimer=0; } }
+board.addEventListener('contextmenu',function(e){e.preventDefault()});
+board.addEventListener('pointerdown',function(e){
+  if(e.pointerType==='mouse'&&e.button!==0) return;
+  stopAnim(); $('hint').classList.add('off');
+  board.setPointerCapture(e.pointerId); drawing=true; pushHist();
+  var p=uvOf(e);
+  if(tool==='draw'){ cur={e:elev,pts:[p]}; strokes=strokes.concat([cur]); markC(); } else eraseAt(p);
+  hover=p; dirty2D=true;
+});
+board.addEventListener('pointermove',function(e){
+  var p=uvOf(e); hover=p; dirty2D=true;
+  if(!drawing) return;
+  if(tool==='draw'&&cur){
+    var l=cur.pts[cur.pts.length-1];
+    if(Math.hypot(p[0]-l[0],p[1]-l[1])>0.004){ cur.pts.push(p); markC(); }
+  } else if(tool==='erase') eraseAt(p);
+});
+function endStroke(){
+  if(!drawing) return; drawing=false;
+  if(cur){
+    var p=cur.pts;
+    if(p.length>12&&Math.hypot(p[0][0]-p[p.length-1][0],p[0][1]-p[p.length-1][1])<0.04){
+      p.push(p[0].slice()); markC();
+      if(autoUp) setElev(elev+300);
+    }
+    cur=null;
+  }
+  save();
+}
+board.addEventListener('pointerup',endStroke);
+board.addEventListener('pointercancel',endStroke);
+board.addEventListener('pointerleave',function(){ hover=null; dirty2D=true; });
+$('tErase').addEventListener('click',function(){ setTool(tool==='erase'?'draw':'erase'); });
+$('undo').addEventListener('click',function(){
+  stopAnim(); if(!hist.length) return; strokes=hist.pop(); $('undo').disabled=!hist.length; markC(); save();
+});
+$('clear').addEventListener('click',function(){ stopAnim(); if(!strokes.length) return; pushHist(); strokes=[]; markC(); save(); });
+$('autoUp').addEventListener('change',function(e){ autoUp=e.target.checked; });
+window.addEventListener('keydown',function(e){
+  var t=e.target&&e.target.tagName; if(t==='INPUT'||t==='TEXTAREA') return;
+  if(e.key==='e'||e.key==='E') setTool(tool==='erase'?'draw':'erase');
+  else if((e.ctrlKey||e.metaKey)&&e.key==='z'){ e.preventDefault(); $('undo').click(); }
+});
+$('water').addEventListener('input',function(e){
+  water=+e.target.value; $('waterOut').textContent=fmt(water)+' m';
+  dirtyGeo=true; dirtyTex=true; dirty2D=true; analyze(); save();
+});
+
+/* ---------- shapes: starter and random mountains ---------- */
+function loop(cx,cy,r,e,o){
+  o=o||{}; var k=o.k===undefined?0.07:o.k, ph=o.ph||0, sx=o.sx||1, sy=o.sy||1, pts=[], n=72;
+  for(var a=0;a<=n;a++){
+    var t=a/n*Math.PI*2, rr=r*(1+k*Math.sin(3*t+ph)+k*0.6*Math.sin(5*t+ph*2.3));
+    pts.push([clamp(cx+Math.cos(t)*rr*sx,0.02,0.98),clamp(cy+Math.sin(t)*rr*sy,0.02,0.98)]);
+  }
+  pts[n]=pts[0].slice(); return {e:e,pts:pts};
+}
+function starter(){ return [loop(.5,.5,.4,150,{sx:1.1,sy:.78,ph:.5}),loop(.5,.5,.27,600,{sx:1.35,sy:.8,ph:1.2}),
+  loop(.34,.52,.17,1100),loop(.34,.52,.1,1700,{ph:1}),loop(.34,.52,.045,2300),
+  loop(.67,.46,.15,1200,{ph:2}),loop(.67,.46,.085,1900,{ph:.6}),loop(.67,.46,.035,2600)]; }
+function randomMountain(){
+  var rnd=Math.random, n=1+Math.floor(rnd()*3), centers=[], tries=0;
+  while(centers.length<n&&tries<60){
+    tries++; var c=[.26+rnd()*.48,.26+rnd()*.48];
+    if(centers.every(function(k){return Math.hypot(k[0]-c[0],k[1]-c[1])>.32})) centers.push(c);
+  }
+  var R0=centers.length===1?.3+rnd()*.12:.15+rnd()*.05, top=1500+Math.round(rnd()*13)*100, rings=4+Math.floor(rnd()*2);
+  var opts=centers.map(function(){ return {ph:rnd()*6,k:.05+rnd()*.06,sx:.85+rnd()*.3,sy:.85+rnd()*.3}; });
+  var out=[];
+  for(var i=0;i<rings;i++){
+    var e=Math.round((100+(top-100)*i/(rings-1))/100)*100, r=R0*(1-0.85*i/(rings-1));
+    centers.forEach(function(c,ci){ out.push(loop(c[0],c[1],r,e,opts[ci])); });
+  }
+  if(centers.length===1&&rnd()<.25){ var c1=centers[0]; out.push(loop(c1[0],c1[1],R0*.07,0,opts[0])); }
+  return out;
+}
+function playStrokes(list){
+  stopAnim(); pushHist(); strokes=[]; markC(); $('hint').classList.add('off');
+  var i=0;
+  (function step(){
+    if(i>=list.length){ animTimer=0; save(); return; }
+    strokes=strokes.concat([list[i++]]); markC();
+    animTimer=setTimeout(step,reduced?60:340);
+  })();
+}
+$('rand').addEventListener('click',function(){ playStrokes(randomMountain()); });
+
+/* ---------- share ---------- */
+function postText(){
+  if(maxH<30) return '指でぐるぐる描くだけで3Dの山になる #等高線クラフト';
+  var nm=mountainName();
+  return '落書きしたら「'+nm+'」ができた。標高'+fmt(maxH)+'m、'+compare(maxH)+'。\n指でぐるぐる描くだけで3Dの山になる #等高線クラフト';
+}
+function rr(x,X,Y,W,H,R){ x.beginPath(); x.moveTo(X+R,Y); x.arcTo(X+W,Y,X+W,Y+H,R); x.arcTo(X+W,Y+H,X,Y+H,R); x.arcTo(X,Y+H,X,Y,R); x.arcTo(X,Y,X+W,Y,R); x.closePath(); }
+function makeCard(){
+  var W=1080, H=1350, c=document.createElement('canvas'); c.width=W; c.height=H;
+  var x=c.getContext('2d'), INK='#17323f';
+  var g=x.createLinearGradient(0,0,0,H); g.addColorStop(0,'#cfe6f2'); g.addColorStop(1,'#f2f8f6'); x.fillStyle=g; x.fillRect(0,0,W,H);
+  if(glOK){
+    renderer.setSize(1080,1000,false); cam.aspect=1.08; cam.updateProjectionMatrix();
+    cam.position.set(radius*Math.sin(phi)*Math.sin(theta),0.8+radius*Math.cos(phi),radius*Math.sin(phi)*Math.cos(theta));
+    cam.lookAt(0,0.8,0); renderer.render(scene,cam);
+    x.drawImage(renderer.domElement,0,0,1080,1000);
+    resizeGL();
+  }
+  x.fillStyle=INK; x.font='400 40px "Dela Gothic One","Hiragino Sans","Yu Gothic",sans-serif'; x.textBaseline='alphabetic'; x.fillText('等高線クラフト',56,88);
+  rr(x,40,1010,1000,296,36); x.fillStyle='#ffffff'; x.fill(); x.lineWidth=6; x.strokeStyle=INK; x.stroke();
+  x.save(); rr(x,70,1040,236,236,24); x.clip(); x.drawImage(board,70,1040,236,236); x.restore();
+  rr(x,70,1040,236,236,24); x.lineWidth=5; x.strokeStyle=INK; x.stroke();
+  var nm=mountainName(), fs=64; x.font='400 '+fs+'px "Dela Gothic One","Hiragino Sans","Yu Gothic",sans-serif';
+  while(x.measureText(nm).width>670&&fs>34){ fs-=2; x.font='400 '+fs+'px "Dela Gothic One","Hiragino Sans","Yu Gothic",sans-serif'; }
+  x.fillStyle=INK; x.fillText(nm,336,1108);
+  x.font='700 42px "Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif'; x.fillText('標高 '+fmt(maxH)+' m',336,1176);
+  x.font='700 30px "Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif'; x.fillStyle='#587684'; x.fillText(compare(maxH),336,1226);
+  x.font='700 28px "Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif'; x.fillStyle=INK; x.fillText('#等高線クラフト',336,1280);
+  return c;
+}
+function toast(msg){
+  var t=$('toast'); t.textContent=msg; t.hidden=false; clearTimeout(toast._t); toast._t=setTimeout(function(){ t.hidden=true; },2400);
+}
+function copyText(s){
+  function fallback(){
+    var ta=document.createElement('textarea'); ta.value=s; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
+    var ok=false; try{ ok=document.execCommand('copy'); }catch(err){} document.body.removeChild(ta);
+    toast(ok?'投稿文をコピーしました':'コピーできませんでした。手で選んでコピーしてください');
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(s).then(function(){ toast('投稿文をコピーしました'); },fallback); else fallback();
+}
+$('share').addEventListener('click',function(){
+  var ready=(document.fonts&&document.fonts.load)?Promise.all([document.fonts.load('40px "Dela Gothic One"'),document.fonts.load('700 28px "Zen Maru Gothic"')]).catch(function(){}):Promise.resolve();
+  ready.then(function(){
+    cardCanvas=makeCard();
+    $('shareImg').src=cardCanvas.toDataURL('image/png');
+    $('modal').hidden=false; $('copyText').focus();
+  });
+});
+$('copyText').addEventListener('click',function(){ copyText(postText()); });
+$('copyImg').addEventListener('click',function(){
+  if(!cardCanvas||!navigator.clipboard||!window.ClipboardItem){ toast('画像を長押しで保存してください'); return; }
+  cardCanvas.toBlob(function(blob){
+    navigator.clipboard.write([new ClipboardItem({'image/png':blob})]).then(function(){ toast('画像をコピーしました'); },function(){ toast('コピーできませんでした。画像を長押しで保存してください'); });
+  },'image/png');
+});
+function closeModal(){ $('modal').hidden=true; $('share').focus(); }
+$('closeModal').addEventListener('click',closeModal);
+$('modal').addEventListener('click',function(e){ if(e.target===$('modal')) closeModal(); });
+window.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('modal').hidden) closeModal(); });
+
+/* ---------- persistence ---------- */
+var saveTimer=0;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(function(){
+    try{ localStorage.setItem('contourcraft.v2',JSON.stringify({strokes:strokes.map(function(s){return {e:s.e,pts:s.pts.map(function(p){return [Math.round(p[0]*10000)/10000,Math.round(p[1]*10000)/10000]})}}),elev:elev,water:water})); }catch(err){}
+  },300);
+}
+function loadSaved(){
+  try{ var s=localStorage.getItem('contourcraft.v2'); return s?JSON.parse(s):null; }catch(err){ return null; }
+}
+
+/* ---------- main loop ---------- */
+var last=performance.now();
+function frame(now){
+  var dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(dirtyC){ rebuild(); dirtyC=false; settled=false; }
+  if(!settled){
+    var md=relax(80); smooth(); dirtyGeo=true; dirty2D=true;
+    if(md<0.015){ settled=true; analyze(); dirtyTex=true; }
+    else if(now-lastTex>140) dirtyTex=true;
+  }
+  if(dirtyGeo){ updateGeo(); dirtyGeo=false; }
+  if(dirtyTex){ paintTex(); lastTex=now; dirtyTex=false; }
+  if(dirty2D){ paintUnderlay(); draw2D(); dirty2D=false; }
+  if(glOK){
+    var active=renderer.domElement._active&&renderer.domElement._active();
+    if(autoRot&&!active) theta+=dt*0.12;
+    cam.position.set(radius*Math.sin(phi)*Math.sin(theta),0.8+radius*Math.cos(phi),radius*Math.sin(phi)*Math.cos(theta));
+    cam.lookAt(0,0.8,0);
+    renderer.render(scene,cam);
+  }
+  requestAnimationFrame(frame);
+}
+
+function start(data){
+  data=data||{};
+  var saved=data.strokes?data:loadSaved();
+  if(saved&&saved.strokes&&saved.strokes.length){
+    strokes=saved.strokes;
+    if(saved.water!==undefined) water=saved.water;
+    if(saved.elev!==undefined) elev=saved.elev;
+    $('hint').classList.add('off');
+  } else strokes=starter();
+  $('water').value=water; $('waterOut').textContent=fmt(water)+' m';
+  setElev(elev); setTool('draw');
+  initGL();
+  settleNow();
+  if(window.ResizeObserver) new ResizeObserver(function(){dirty2D=true}).observe(board);
+  var mq=window.matchMedia('(prefers-color-scheme: dark)');
+  if(mq.addEventListener) mq.addEventListener('change',function(){dirty2D=true});
+  new MutationObserver(function(){dirty2D=true}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  if(document.fonts&&document.fonts.ready) document.fonts.ready.then(function(){dirty2D=true});
+  requestAnimationFrame(frame);
+}
+var hot=window.claude&&window.claude.hot;
+if(hot&&hot.snapshot) hot.snapshot(function(){ return {strokes:strokes,elev:elev,water:water}; });
+if(hot&&hot.ready) hot.ready(start); else start(hot&&hot.data);
+})();
+</script>
+
+</body></html>
