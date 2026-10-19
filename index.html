@@ -90,13 +90,18 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
 .modal img{display:block;width:100%;height:auto;max-height:58dvh;object-fit:contain;border-radius:12px;border:2.5px solid var(--ink);-webkit-touch-callout:default;user-select:auto}
 .modal p{margin:0;font-size:13px;color:var(--muted);font-weight:700}
 .toast{position:fixed;left:50%;bottom:max(20px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:30;max-width:calc(100% - 32px);padding:8px 18px;border-radius:999px;background:var(--ink);color:var(--surface);font-weight:700;font-size:14px;text-align:center}
+.challenge{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 12px;background:var(--sky2);border:2px dashed var(--ink);border-radius:14px}
+.challenge .lbl{font-size:12px;white-space:nowrap}
+.challenge strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.challenge button{appearance:none;border:0;background:transparent;color:var(--muted);font:700 12px var(--f-body);cursor:pointer;padding:4px}
+.challenge button:hover{color:var(--ink)}
 @media (prefers-reduced-motion:no-preference){.sw{transition:transform .12s}.btn{transition:transform .08s,box-shadow .08s}}
 </style>
 
 <div class="shell">
   <header class="top">
     <h1>等高線クラフト</h1>
-    <p>ぐるぐる描くと、山になる。</p>
+    <p>30秒で山をつくって、Xに置いていこう。</p>
   </header>
 
   <main class="stage">
@@ -109,12 +114,13 @@ input[type=range]::-moz-range-thumb{width:20px;height:20px;border-radius:50%;bac
         <div class="head"><span class="lbl" id="l-elev">いまの高さ</span><output id="elevOut">600 m</output></div>
         <div class="palette" id="palette" role="radiogroup" aria-labelledby="l-elev"></div>
         <div class="row">
-          <button id="rand" class="btn primary">おまかせ</button>
+          <button id="rand" class="btn primary">山ガチャ</button>
           <button id="tErase" class="btn" aria-pressed="false">消しゴム</button>
           <button id="undo" class="btn" disabled>戻す</button>
           <button id="clear" class="btn">全部消す</button>
         </div>
         <label class="chk"><input id="autoUp" type="checkbox" checked>輪を閉じたら次を300m高くする</label>
+        <div class="challenge"><span class="lbl">今日のお題</span><strong id="prompt">海から生える山</strong><button id="nextPrompt" type="button">変える</button></div>
       </div>
     </section>
 
@@ -548,6 +554,14 @@ $('water').addEventListener('input',function(e){
 });
 
 /* ---------- shapes: starter and random mountains ---------- */
+var SHARE_URL='https://mountain-9mp.pages.dev/';
+var PROMPTS=['海から生える山','富士山を超える一筆','怪獣が住む山','月まで届く山','見たことのない島','おにぎり型の火山','推しの名前っぽい山','地球最後の避難所'];
+var promptIndex=0, challengeText=PROMPTS[0];
+function setPrompt(){
+  promptIndex=(promptIndex+1+Math.floor(Math.random()*(PROMPTS.length-1)))%PROMPTS.length;
+  challengeText=PROMPTS[promptIndex]; $('prompt').textContent=challengeText; updateX();
+}
+$('nextPrompt').addEventListener('click',setPrompt);
 function loop(cx,cy,r,e,o){
   o=o||{}; var k=o.k===undefined?0.07:o.k, ph=o.ph||0, sx=o.sx||1, sy=o.sy||1, pts=[], n=72;
   for(var a=0;a<=n;a++){
@@ -588,9 +602,9 @@ $('rand').addEventListener('click',function(){ playStrokes(randomMountain()); })
 
 /* ---------- share ---------- */
 function postText(){
-  if(maxH<30) return '指でぐるぐる描くだけで3Dの山になる #等高線クラフト';
+  if(maxH<30) return 'いまから「'+challengeText+'」を描きます。どんな山になるかな？\n'+SHARE_URL+'\n#等高線クラフト';
   var nm=mountainName();
-  return '落書きしたら「'+nm+'」ができた。標高'+fmt(maxH)+'m、'+compare(maxH)+'。\n指でぐるぐる描くだけで3Dの山になる #等高線クラフト';
+  return 'お題「'+challengeText+'」で描いたら「'+nm+'」ができた。標高'+fmt(maxH)+'m、'+compare(maxH)+'。\nあなたならどんな山を描く？\n'+SHARE_URL+'\n#等高線クラフト';
 }
 function rr(x,X,Y,W,H,R){ x.beginPath(); x.moveTo(X+R,Y); x.arcTo(X+W,Y,X+W,Y+H,R); x.arcTo(X+W,Y+H,X,Y+H,R); x.arcTo(X,Y+H,X,Y,R); x.arcTo(X,Y,X+W,Y,R); x.closePath(); }
 function makeCard(){
@@ -648,15 +662,15 @@ $('modal').addEventListener('click',function(e){ if(e.target===$('modal')) close
 window.addEventListener('keydown',function(e){ if(e.key==='Escape'&&!$('modal').hidden) closeModal(); });
 
 /* ---------- persistence ---------- */
-var saveTimer=0;
+var saveTimer=0, STORAGE_KEY='contourcraft.v3';
 function save(){
   clearTimeout(saveTimer);
   saveTimer=setTimeout(function(){
-    try{ localStorage.setItem('contourcraft.v2',JSON.stringify({strokes:strokes.map(function(s){return {e:s.e,pts:s.pts.map(function(p){return [Math.round(p[0]*10000)/10000,Math.round(p[1]*10000)/10000]})}}),elev:elev,water:water})); }catch(err){}
+    try{ localStorage.setItem(STORAGE_KEY,JSON.stringify({strokes:strokes.map(function(s){return {e:s.e,pts:s.pts.map(function(p){return [Math.round(p[0]*10000)/10000,Math.round(p[1]*10000)/10000]})}}),elev:elev,water:water})); }catch(err){}
   },300);
 }
 function loadSaved(){
-  try{ var s=localStorage.getItem('contourcraft.v2'); return s?JSON.parse(s):null; }catch(err){ return null; }
+  try{ var s=localStorage.getItem(STORAGE_KEY); return s?JSON.parse(s):null; }catch(err){ return null; }
 }
 
 /* ---------- main loop ---------- */
@@ -690,7 +704,7 @@ function start(data){
     if(saved.water!==undefined) water=saved.water;
     if(saved.elev!==undefined) elev=saved.elev;
     $('hint').classList.add('off');
-  } else strokes=starter();
+  } else strokes=[];
   $('water').value=water; $('waterOut').textContent=fmt(water)+' m';
   setElev(elev); setTool('draw');
   initGL();
